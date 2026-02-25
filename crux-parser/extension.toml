@@ -1,0 +1,8 @@
+[grammars.crux]
+repository = "file://crux/grammars/src"
+rev = "local"
+
+[languages.crux]
+name = "Crux"
+grammar = "crux"
+path_suffixes = ["crux"]

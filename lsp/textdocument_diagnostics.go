@@ -16,3 +16,8 @@ type Diagnostic struct {
 	Source   string `json:"source"`
 	Message  string `json:"message"`
 }
+
+type DiagnosticRelatedInformation struct {
+	Location Location `json:"location"`
+	Message  string   `json:"message"`
+}

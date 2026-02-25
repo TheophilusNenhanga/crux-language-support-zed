@@ -1,0 +1,8 @@
+// Adds an element to the end of an array
+// arg0: Any -> the element to add to the array
+// returns: Result<Nil> -> Ok<Nil> on success, Err<Runtime> on failure
+fn push(element) {}
+
+// Removes an element from the end of an array
+// returns: Result<Any> -> Ok<Any> on success, Err<Runtime> on failure
+fn pop() {}

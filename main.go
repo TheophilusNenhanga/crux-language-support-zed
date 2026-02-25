@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	logger := getLogger("/home/tjdevries/git/educationalsp/log.txt")
+	logger := getLogger("/home/theo-go-arch/Desktop/Theophilus/git/crux-lsp/log.txt")
 	logger.Println("Hey, I started!")
 
 	scanner := bufio.NewScanner(os.Stdin)

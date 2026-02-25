@@ -1,0 +1,13 @@
+[package]
+name = "crux Zed extension"
+version = "0.1.0"
+description = "Crux language support for Zed"
+authors = ["Crux Team"]
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+crate-type = ["cdylib"]
+
+[dependencies]
+zed_extension_api = "0.2"
