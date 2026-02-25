@@ -1,7 +1,7 @@
 package analysis
 
 import (
-	"educationalsp/lsp"
+	"crux-ls/lsp"
 	"strings"
 )
 
@@ -14,15 +14,21 @@ type Symbol struct {
 }
 
 type State struct {
-	Documents map[string]string
-	Symbols   map[string][]Symbol
+	Documents  map[string]string
+	Symbols    map[string][]Symbol
+	StdlibDocs StdlibIndex
+	Imported   map[string]string // alias -> module.function
 }
 
 func NewState() State {
-	return State{
-		Documents: map[string]string{},
-		Symbols:   map[string][]Symbol{},
+	state := State{
+		Documents:  map[string]string{},
+		Symbols:    map[string][]Symbol{},
+		StdlibDocs: make(StdlibIndex),
+		Imported:   make(map[string]string),
 	}
+	state.LoadStdlibDocs()
+	return state
 }
 
 func (s *State) parseDocument(uri, text string) ([]Statement, []Diagnostic) {
@@ -114,9 +120,10 @@ func (s *State) findSymbols(statements []Statement, uri string) []Symbol {
 	return symbols
 }
 
-func getDiagnosticsForFile(text string, uri string) ([]lsp.Diagnostic, []Symbol) {
+func getDiagnosticsForFile(text string, uri string) ([]lsp.Diagnostic, []Symbol, map[string]string) {
 	diagnostics := []lsp.Diagnostic{}
 	symbols := []Symbol{}
+	imports := make(map[string]string)
 
 	scanner := NewScanner(text)
 	tokens := scanner.ScanAll()
@@ -140,6 +147,14 @@ func getDiagnosticsForFile(text string, uri string) ([]lsp.Diagnostic, []Symbol)
 	if !hasError {
 		parser := NewParser(tokens)
 		statements, diags := parser.Parse()
+
+		for _, stmt := range statements {
+			if useStmt, ok := stmt.(*UseStmt); ok {
+				module := strings.Trim(useStmt.Module, `"`)
+				module = strings.TrimPrefix(module, "crux:")
+				imports[useStmt.Alias] = module
+			}
+		}
 
 		for _, diag := range diags {
 			diagnostics = append(diagnostics, lsp.Diagnostic{
@@ -226,14 +241,15 @@ func getDiagnosticsForFile(text string, uri string) ([]lsp.Diagnostic, []Symbol)
 		collectSymbols(statements)
 	}
 
-	return diagnostics, symbols
+	return diagnostics, symbols, imports
 }
 
 func (s *State) OpenDocument(uri, text string) []lsp.Diagnostic {
 	s.Documents[uri] = text
 
-	diagnostics, symbols := getDiagnosticsForFile(text, uri)
+	diagnostics, symbols, imports := getDiagnosticsForFile(text, uri)
 	s.Symbols[uri] = symbols
+	s.Imported = imports
 
 	return diagnostics
 }
@@ -241,8 +257,9 @@ func (s *State) OpenDocument(uri, text string) []lsp.Diagnostic {
 func (s *State) UpdateDocument(uri, text string) []lsp.Diagnostic {
 	s.Documents[uri] = text
 
-	diagnostics, symbols := getDiagnosticsForFile(text, uri)
+	diagnostics, symbols, imports := getDiagnosticsForFile(text, uri)
 	s.Symbols[uri] = symbols
+	s.Imported = imports
 
 	return diagnostics
 }
@@ -263,8 +280,11 @@ func (s *State) Hover(id int, uri string, position lsp.Position) lsp.HoverRespon
 			tokenEndCol := token.Column + len(token.Literal)
 
 			if adjustedCol >= tokenStartCol && adjustedCol <= tokenEndCol {
+				tokenName := token.Literal
+
+				// Check user-defined symbols
 				for _, sym := range symbols {
-					if sym.Name == token.Literal {
+					if sym.Name == tokenName {
 						return lsp.HoverResponse{
 							Response: lsp.Response{
 								RPC: "2.0",
@@ -277,12 +297,69 @@ func (s *State) Hover(id int, uri string, position lsp.Position) lsp.HoverRespon
 					}
 				}
 
-				for _, tok := range tokens {
-					if tok.Type == TOKEN_FN && tok.Line == token.Line+1 {
-						continue
+				// Check imported stdlib symbols
+				if module, ok := s.Imported[tokenName]; ok {
+					fullName := module + "." + tokenName
+					if doc, exists := s.StdlibDocs[fullName]; exists {
+						contents := "function " + doc.Name + "\n\n" + doc.Description
+						if doc.Returns != "" {
+							contents += "\n\nReturns: " + doc.Returns
+						}
+						return lsp.HoverResponse{
+							Response: lsp.Response{
+								RPC: "2.0",
+								ID:  &id,
+							},
+							Result: lsp.HoverResult{
+								Contents: contents,
+							},
+						}
 					}
-					if tok.Type == TOKEN_LET && tok.Line == token.Line+1 {
-						continue
+					// Try just the function name
+					if doc, exists := s.StdlibDocs[tokenName]; exists {
+						contents := "function " + doc.Name + "\n\n" + doc.Description
+						if doc.Returns != "" {
+							contents += "\n\nReturns: " + doc.Returns
+						}
+						return lsp.HoverResponse{
+							Response: lsp.Response{
+								RPC: "2.0",
+								ID:  &id,
+							},
+							Result: lsp.HoverResult{
+								Contents: contents,
+							},
+						}
+					}
+				}
+
+				// Check builtin docs
+				if builtinDoc := GetBuiltinDoc(tokenName); builtinDoc != "" {
+					return lsp.HoverResponse{
+						Response: lsp.Response{
+							RPC: "2.0",
+							ID:  &id,
+						},
+						Result: lsp.HoverResult{
+							Contents: "builtin function " + tokenName + "\n\n" + builtinDoc,
+						},
+					}
+				}
+
+				// Check if it's a stdlib function without explicit import
+				if doc, exists := s.StdlibDocs[tokenName]; exists {
+					contents := "function " + doc.Name + "\n\n" + doc.Description
+					if doc.Returns != "" {
+						contents += "\n\nReturns: " + doc.Returns
+					}
+					return lsp.HoverResponse{
+						Response: lsp.Response{
+							RPC: "2.0",
+							ID:  &id,
+						},
+						Result: lsp.HoverResult{
+							Contents: contents,
+						},
 					}
 				}
 
@@ -292,7 +369,7 @@ func (s *State) Hover(id int, uri string, position lsp.Position) lsp.HoverRespon
 						ID:  &id,
 					},
 					Result: lsp.HoverResult{
-						Contents: "identifier " + token.Literal,
+						Contents: "identifier " + tokenName,
 					},
 				}
 			}

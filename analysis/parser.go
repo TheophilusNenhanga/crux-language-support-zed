@@ -1,7 +1,7 @@
 package analysis
 
 import (
-	"educationalsp/lsp"
+	"crux-ls/lsp"
 )
 
 type Diagnostic = lsp.Diagnostic
@@ -290,6 +290,17 @@ func (s *ContinueStmt) GetLine() int   { return s.Line }
 func (s *ContinueStmt) GetColumn() int { return s.Column }
 func (s *ContinueStmt) stmtNode()      {}
 
+type UseStmt struct {
+	Module string // "crux:array"
+	Alias  string // "Vec" (optional)
+	Line   int
+	Column int
+}
+
+func (s *UseStmt) GetLine() int   { return s.Line }
+func (s *UseStmt) GetColumn() int { return s.Column }
+func (s *UseStmt) stmtNode()      {}
+
 type StructStmt struct {
 	Name   string
 	Fields []string
@@ -424,6 +435,9 @@ func (p *Parser) declaration() Statement {
 	if p.match(TOKEN_STRUCT) {
 		return p.structDeclaration()
 	}
+	if p.match(TOKEN_USE) {
+		return p.useStatement()
+	}
 	if p.match(TOKEN_PUB) {
 		if p.check(TOKEN_FN) {
 			p.advance()
@@ -547,6 +561,30 @@ func (p *Parser) structDeclaration() Statement {
 	return &StructStmt{
 		Name:   name,
 		Fields: fields,
+		Line:   prev.Line,
+		Column: prev.Column,
+	}
+}
+
+func (p *Parser) useStatement() Statement {
+	name := p.consume(TOKEN_IDENTIFIER, "Expect identifier after 'use'").Literal
+
+	var alias string
+	if p.match(TOKEN_AS) {
+		alias = p.consume(TOKEN_IDENTIFIER, "Expect alias after 'as'").Literal
+	} else {
+		alias = name
+	}
+
+	p.consume(TOKEN_FROM, "Expect 'from' after import name")
+	module := p.consume(TOKEN_STRING, "Expect module path after 'from'").Literal
+
+	p.consume(TOKEN_SEMICOLON, "Expect ';' after use statement")
+
+	prev := p.previousToken()
+	return &UseStmt{
+		Module: module,
+		Alias:  alias,
 		Line:   prev.Line,
 		Column: prev.Column,
 	}

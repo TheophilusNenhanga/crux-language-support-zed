@@ -2,9 +2,9 @@ package main
 
 import (
 	"bufio"
-	"educationalsp/analysis"
-	"educationalsp/lsp"
-	"educationalsp/rpc"
+	"crux-ls/analysis"
+	"crux-ls/lsp"
+	"crux-ls/rpc"
 	"encoding/json"
 	"io"
 	"log"
@@ -155,5 +155,5 @@ func getLogger(filename string) *log.Logger {
 		panic("hey, you didnt give me a good file")
 	}
 
-	return log.New(logfile, "[educationalsp]", log.Ldate|log.Ltime|log.Lshortfile)
+	return log.New(logfile, "[crux-ls]", log.Ldate|log.Ltime|log.Lshortfile)
 }

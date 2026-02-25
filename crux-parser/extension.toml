@@ -1,8 +1,14 @@
+id = "crux"
+name = "Crux"
+version = "0.0.1"
+schema_version = 1
+authors = ["Theophilus Nenhanga"]
+description = "Crux language support for Zed"
+
 [grammars.crux]
 repository = "file://crux/grammars/src"
 rev = "local"
 
-[languages.crux]
-name = "Crux"
-grammar = "crux"
-path_suffixes = ["crux"]
+[language_servers.crux-lsp]
+name = "Crux LSP"
+languages = ["Crux"]
