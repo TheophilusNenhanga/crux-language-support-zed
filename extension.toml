@@ -1,0 +1,20 @@
+id = "crux"
+name = "Crux"
+version = "0.1.0"
+schema_version = 1
+authors = ["Theophilus Nenhanga"]
+description = "Crux language support for Zed"
+repository = "https://github.com/TheophilusNenhanga/crux-language-support-zed"
+
+[grammars.crux]
+repository = "https://github.com/TheophilusNenhanga/tree-sitter-crux"
+rev = "5247a7681164146473b413c2c8fa40a37f5130c7"
+
+[language_servers.crux-ls]
+name = "Crux LSP"
+languages = ["Crux"]
+
+[[capabilities]]
+kind = "process:exec"
+command = "*"
+args = ["-version"]

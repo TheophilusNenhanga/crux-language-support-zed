@@ -42,9 +42,6 @@
 ; Function declarations
 (function_declaration (identifier) @function)
 
-; Function expressions
-(function_expression (identifier) @function)
-
 ; Parameters
 (parameters (identifier) @variable.parameter)
 
